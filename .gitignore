@@ -1,4 +1,15 @@
-/.venv
-.env
+# Python
 __pycache__/
 *.pyc
+.venv/
+.env
+
+# Node / Frontend
+node_modules/
+dist/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
