@@ -1,1 +1,1 @@
-pip install fastapi uvicorn pydantic
+pip install fastapi uvicorn pydantic sentence-transformers
