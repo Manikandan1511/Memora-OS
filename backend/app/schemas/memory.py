@@ -12,3 +12,16 @@ class MemoryResponse(BaseModel):
     source: str
     embedding: List[float]
     created_at: datetime
+
+
+class MemorySearchRequest(BaseModel):
+    query: str
+    limit: int = 5
+
+class MemorySearchResult(BaseModel):
+    id: str
+    content: str
+    metadata: dict
+
+class MemorySearchResponse(BaseModel):
+    results: List[MemorySearchResult]
