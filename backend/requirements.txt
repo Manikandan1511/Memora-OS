@@ -1,1 +1,1 @@
-pip install fastapi uvicorn pydantic sentence-transformers
+pip install fastapi uvicorn pydantic sentence-transformers chromadb

@@ -13,3 +13,7 @@ dist/
 
 # Logs
 *.log
+
+# Vector database (ChromaDB)
+vectordb/
+backend/vectordb/
