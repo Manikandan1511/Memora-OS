@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from app.services.embedding import generate_embedding
+from app.services.embedding import create_embedding
 from app.db.chroma import get_collection
 from app.services.graph import create_memory_node
 
@@ -20,7 +20,7 @@ def ingest_memory(content: str, source: str = "manual"):
     created_at = datetime.utcnow()
 
     # 1. Create embedding
-    embedding = generate_embedding(content)
+    embedding = create_embedding(content)
 
     # 2. Store in ChromaDB
     collection = get_collection()

@@ -1,3 +1,5 @@
+# backend/app/api/evolution.py
+
 from fastapi import APIRouter
 from app.db.neo4j import get_driver
 
@@ -8,17 +10,18 @@ router = APIRouter(prefix="/api/v1/evolution", tags=["Evolution"])
 def get_memory_evolution(memory_id: str):
     driver = get_driver()
 
-    query = """
-    MATCH (a:Memory {id: $id})-[r]->(b:Memory)
-    RETURN type(r) AS relation,
-           b.id AS id,
-           b.content AS content
-    """
-
-    evolution = []
-
     with driver.session() as session:
-        result = session.run(query, id=memory_id)
+        result = session.run(
+            """
+            MATCH (a:Memory {id: $id})-[r]->(b:Memory)
+            RETURN type(r) AS relation,
+                   b.id AS id,
+                   b.content AS content
+            """,
+            id=memory_id
+        )
+
+        evolution = []
         for record in result:
             evolution.append({
                 "relation": record["relation"],
