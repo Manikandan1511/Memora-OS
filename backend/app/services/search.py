@@ -1,10 +1,13 @@
 # backend/app/services/search.py
 
-from app.services.embedding import generate_embedding
-from app.db.chroma import collection
+from app.db.chroma import get_collection
+from app.services.embedding import create_embedding
+
 
 def search_memories(query: str, limit: int = 5):
-    query_embedding = generate_embedding(query)
+    collection = get_collection()
+
+    query_embedding = create_embedding(query)
 
     results = collection.query(
         query_embeddings=[query_embedding],

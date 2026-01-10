@@ -1,9 +1,12 @@
 # backend/app/services/temporal.py
 
 from datetime import datetime
-from app.db.chroma import collection
+from app.db.chroma import get_collection
+
 
 def get_memories_by_time(start_date: str, end_date: str):
+    collection = get_collection()
+
     start = datetime.fromisoformat(start_date)
     end = datetime.fromisoformat(end_date)
 
@@ -13,13 +16,15 @@ def get_memories_by_time(start_date: str, end_date: str):
 
     memories = []
 
-    for i, meta in enumerate(results["metadatas"]):
-        created_at = datetime.fromisoformat(meta["created_at"])
+    for i in range(len(results["documents"])):
+        metadata = results["metadatas"][i]
+        created_at = datetime.fromisoformat(metadata["created_at"])
+
         if start <= created_at <= end:
             memories.append({
-                "id": results["ids"][i],        # ids are always returned
+                "id": results["ids"][i],
                 "content": results["documents"][i],
-                "metadata": meta
+                "metadata": metadata
             })
 
     return memories
