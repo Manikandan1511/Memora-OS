@@ -1,13 +1,26 @@
 # backend/app/schemas/memory.py
 
 from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional, List, Dict
 
 
-# -------- Request Schemas --------
+class MemoryCreate(BaseModel):
+    content: str
+    source: Optional[str] = "manual"
 
-class MemoryCreateRequest(BaseModel):
+
+class MemoryResponse(BaseModel):
+    id: str
     content: str
     source: str
+    embedding: List[float]
+    created_at: datetime  # datetime is correct
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()  # THIS FIXES IT
+        }
 
 
 class MemorySearchRequest(BaseModel):
@@ -15,15 +28,20 @@ class MemorySearchRequest(BaseModel):
     limit: int = 5
 
 
-class MemoryTimelineRequest(BaseModel):
+class MemorySearchResult(BaseModel):
+    id: str
+    content: str
+    metadata: Dict
+
+
+class MemorySearchResponse(BaseModel):
+    results: List[MemorySearchResult]
+
+
+class MemoryTimeRangeRequest(BaseModel):
     start_date: str
     end_date: str
 
 
-# -------- Response Schemas --------
-
-class MemoryResponse(BaseModel):
-    id: str
-    content: str
-    source: str
-    created_at: str
+class MemoryTimeRangeResponse(BaseModel):
+    results: List[MemorySearchResult]

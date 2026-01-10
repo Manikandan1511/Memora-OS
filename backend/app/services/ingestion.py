@@ -1,42 +1,52 @@
 # backend/app/services/ingestion.py
 
-from uuid import uuid4
+import uuid
 from datetime import datetime
 
-from app.services.embedding import create_embedding
+from app.services.embedding import generate_embedding
 from app.db.chroma import get_collection
-from app.services.graph import create_memory_node, link_related_memories
+from app.services.graph import create_memory_node
 
 
-def ingest_memory(content: str, source: str):
-    memory_id = str(uuid4())
-    created_at = datetime.utcnow().isoformat()
+def ingest_memory(content: str, source: str = "manual"):
+    """
+    Ingests a memory:
+    - creates embedding
+    - stores in Chroma
+    - creates Neo4j node
+    """
 
-    # Create embedding
-    embedding = create_embedding(content)
+    memory_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
 
-    # Store in ChromaDB
+    # 1. Create embedding
+    embedding = generate_embedding(content)
+
+    # 2. Store in ChromaDB
     collection = get_collection()
     collection.add(
         ids=[memory_id],
         documents=[content],
-        embeddings=[embedding],
         metadatas=[{
             "source": source,
-            "created_at": created_at
-        }]
+            "created_at": created_at.isoformat()
+        }],
+        embeddings=[embedding]
     )
 
-    # Unified memory object
-    memory = {
+    # 3. Store in Neo4j
+    create_memory_node({
         "id": memory_id,
         "content": content,
         "source": source,
-        "created_at": created_at
+        "created_at": created_at.isoformat()
+    })
+
+    # 4. Return API-safe response
+    return {
+        "id": memory_id,
+        "content": content,
+        "source": source,
+        "embedding": embedding,
+        "created_at": created_at.isoformat()
     }
-
-    # Store in Neo4j
-    create_memory_node(memory)
-    link_related_memories(memory)
-
-    return memory

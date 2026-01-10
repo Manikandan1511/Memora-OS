@@ -1,14 +1,11 @@
-# backend/app/services/evolution.py
-
+from fastapi import APIRouter
 from app.db.neo4j import get_driver
 
+router = APIRouter(prefix="/api/v1/evolution", tags=["Evolution"])
 
+
+@router.get("/{memory_id}")
 def get_memory_evolution(memory_id: str):
-    """
-    Returns all graph relationships for a memory node
-    (without similarity – clean & warning-free)
-    """
-
     driver = get_driver()
 
     query = """
@@ -18,10 +15,10 @@ def get_memory_evolution(memory_id: str):
            b.content AS content
     """
 
+    evolution = []
+
     with driver.session() as session:
         result = session.run(query, id=memory_id)
-
-        evolution = []
         for record in result:
             evolution.append({
                 "relation": record["relation"],
