@@ -1,38 +1,46 @@
+# backend/app/api/memory.py
+
 from fastapi import APIRouter
+
 from app.schemas.memory import (
-    MemoryCreate,
+    MemoryCreateRequest,
     MemoryResponse,
     MemorySearchRequest,
-    MemorySearchResponse,
-    MemoryTimeRangeRequest,
-    MemoryTimeRangeResponse
+    MemoryTimelineRequest
 )
 from app.services.ingestion import ingest_memory
 from app.services.search import search_memories
 from app.services.temporal import get_memories_by_time
 
+router = APIRouter(prefix="/memory", tags=["Memory"])
 
-router = APIRouter()
 
-@router.post("", response_model=MemoryResponse)
-def add_memory(payload: MemoryCreate):
+# -------- Create Memory --------
+@router.post("/", response_model=MemoryResponse)
+def add_memory(payload: MemoryCreateRequest):
     return ingest_memory(
         content=payload.content,
         source=payload.source
     )
 
-@router.post("/search", response_model=MemorySearchResponse)
-def search_memory(payload: MemorySearchRequest):
-    results = search_memories(
-        query=payload.query,
-        limit=payload.limit
-    )
-    return {"results": results}
 
-@router.post("/timeline", response_model=MemoryTimeRangeResponse)
-def get_memory_timeline(payload: MemoryTimeRangeRequest):
-    memories = get_memories_by_time(
-        start_date=payload.start_date,
-        end_date=payload.end_date
-    )
-    return {"results": memories}
+# -------- Semantic Search --------
+@router.post("/search")
+def search_memory(payload: MemorySearchRequest):
+    return {
+        "results": search_memories(
+            query=payload.query,
+            limit=payload.limit
+        )
+    }
+
+
+# -------- Timeline (Temporal Memory) --------
+@router.post("/timeline")
+def memory_timeline(payload: MemoryTimelineRequest):
+    return {
+        "results": get_memories_by_time(
+            start_date=payload.start_date,
+            end_date=payload.end_date
+        )
+    }
