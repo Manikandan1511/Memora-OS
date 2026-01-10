@@ -25,3 +25,10 @@ class MemorySearchResult(BaseModel):
 
 class MemorySearchResponse(BaseModel):
     results: List[MemorySearchResult]
+
+class MemoryTimeRangeRequest(BaseModel):
+    start_date: str  # ISO format
+    end_date: str    # ISO format
+
+class MemoryTimeRangeResponse(BaseModel):
+    results: List[MemorySearchResult]
