@@ -17,3 +17,46 @@ dist/
 # Vector database (ChromaDB)
 vectordb/
 backend/vectordb/
+
+
+# Node / Vite
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Vite cache
+node_modules/.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# Build artifacts
+*.log
+*.cache
+
+# Optional: coverage
+coverage/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.idea
