@@ -1,25 +1,30 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
+
 import Dashboard from "./pages/Dashboard";
+import MemoryInbox from "./pages/MemoryInbox";
+import AskBrain from "./pages/AskBrain";
+import Timeline from "./pages/Timeline";
+import BrainGraph from "./pages/BrainGraph";
 
 function App() {
   return (
-    <BrowserRouter>
-      <div style={{ height: "100vh", background: "#0f172a", color: "white" }}>
-        <Navbar />
+    <div className="flex h-screen w-screen bg-slate-950 text-slate-100">
+      {/* Sidebar */}
+      <Sidebar />
 
-        <div style={{ display: "flex", height: "calc(100vh - 56px)" }}>
-          <Sidebar />
-
-          <main style={{ flex: 1, padding: "24px" }}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-            </Routes>
-          </main>
-        </div>
-      </div>
-    </BrowserRouter>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-6">
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/memory-inbox" element={<MemoryInbox />} />
+          <Route path="/ask-brain" element={<AskBrain />} />
+          <Route path="/timeline" element={<Timeline />} />
+          <Route path="/brain-graph" element={<BrainGraph />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
 

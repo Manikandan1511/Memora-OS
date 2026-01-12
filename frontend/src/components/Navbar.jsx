@@ -1,21 +1,18 @@
 function Navbar() {
   return (
-    <div
-      style={{
-        height: "56px",
-        background: "#020617",
-        color: "white",
-        display: "flex",
-        alignItems: "center",
-        padding: "0 20px",
-        borderBottom: "1px solid #1e293b",
-      }}
-    >
-      <strong>🧠 Memora OS</strong>
-      <span style={{ marginLeft: "12px", opacity: 0.6 }}>
-        Memory Operating System
-      </span>
-    </div>
+    <header className="h-14 flex items-center px-6 bg-slate-950 border-b border-slate-800">
+      <div className="flex items-center gap-3">
+        <span className="text-lg">🧠</span>
+        <div>
+          <p className="text-sm font-semibold text-white">
+            Memora OS
+          </p>
+          <p className="text-xs text-slate-400 leading-none">
+            Memory Operating System
+          </p>
+        </div>
+      </div>
+    </header>
   );
 }
 
