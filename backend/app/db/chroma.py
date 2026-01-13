@@ -17,6 +17,7 @@ def get_collection():
         _client = chromadb.Client(
             ChromaSettings(
                 persist_directory=CHROMA_PATH,
+                is_persistent=True,          # 🔥 REQUIRED
                 anonymized_telemetry=False
             )
         )
