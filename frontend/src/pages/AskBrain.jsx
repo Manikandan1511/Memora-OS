@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { askBrain } from "../services/api";
 
 export default function AskBrain() {
   const [messages, setMessages] = useState([
@@ -8,25 +9,45 @@ export default function AskBrain() {
     },
   ]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: input },
-      {
-        role: "assistant",
-        content:
-          "🧠 I received your question. Backend integration is coming soon.",
-      },
-    ]);
+    const userMessage = { role: "user", content: input };
+
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setLoading(true);
+
+    try {
+      const response = await askBrain(userMessage.content);
+
+      const assistantMessage = {
+        role: "assistant",
+        content: response.answer,
+        memories: response.memories_used || [],
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error(error);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "❌ Sorry, I couldn't reach the brain right now.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,10 +76,38 @@ export default function AskBrain() {
                   : "bg-slate-800 text-slate-200 rounded-bl-none"
               }`}
             >
-              {msg.content}
+              <p>{msg.content}</p>
+
+              {/* Memories Used (Assistant Only) */}
+              {msg.role === "assistant" &&
+                msg.memories &&
+                msg.memories.length > 0 && (
+                  <div className="mt-3 border-t border-slate-700 pt-2 text-xs text-slate-400">
+                    <p className="mb-1 font-medium">Memories used:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {msg.memories.map((mem) => (
+                        <li key={mem.id}>
+                          {mem.content}{" "}
+                          <span className="opacity-70">
+                            (score: {mem.score})
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
             </div>
           </div>
         ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-slate-800 text-slate-300 px-4 py-3 rounded-2xl text-sm animate-pulse">
+              🧠 Thinking...
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
@@ -69,11 +118,13 @@ export default function AskBrain() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           placeholder="Ask something..."
-          className="flex-1 rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          disabled={loading}
+          className="flex-1 rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
         />
         <button
           onClick={sendMessage}
-          className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition"
+          disabled={loading}
+          className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition disabled:opacity-50"
         >
           Send
         </button>
