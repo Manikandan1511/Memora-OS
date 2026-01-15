@@ -34,9 +34,6 @@ def get_collection():
 
 
 def semantic_search(query: str, k: int = 5):
-    """
-    Semantic similarity search for AskBrain.
-    """
     collection = get_collection()
 
     results = collection.query(
@@ -44,20 +41,31 @@ def semantic_search(query: str, k: int = 5):
         n_results=k
     )
 
-    hits = []
-
     if not results or not results.get("documents"):
-        return hits
+        return []
 
     documents = results["documents"][0]
     ids = results["ids"][0]
     distances = results["distances"][0]
 
-    for i in range(len(documents)):
+    seen_ids = set()
+    hits = []
+
+    for doc_id, content, distance in zip(ids, documents, distances):
+        if doc_id in seen_ids:
+            continue
+
+        seen_ids.add(doc_id)
+
+        similarity = round(1 / (1 + float(distance)), 4)
+
         hits.append({
-            "id": ids[i],
-            "content": documents[i],
-            "score": round(float(distances[i]), 4)
+            "id": doc_id,
+            "content": content.strip(),
+            "score": similarity
         })
+
+    # Sort by similarity (higher = better)
+    hits.sort(key=lambda x: x["score"], reverse=True)
 
     return hits

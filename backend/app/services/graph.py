@@ -87,3 +87,37 @@ def get_graph():
         "nodes": list(nodes.values()),
         "edges": edges
     }
+
+def expand_context_from_memories(memory_ids: list, limit: int = 5):
+    """
+    Expand reasoning context using Neo4j relationships.
+    Used by AskBrain.
+    """
+    if not memory_ids:
+        return []
+
+    driver = get_driver()
+
+    query = """
+    MATCH (m:Memory)-[r]->(related:Memory)
+    WHERE m.id IN $memory_ids
+    RETURN DISTINCT related.content AS content, type(r) AS relation
+    LIMIT $limit
+    """
+
+    expanded = []
+
+    with driver.session() as session:
+        results = session.run(
+            query,
+            memory_ids=memory_ids,
+            limit=limit
+        )
+
+        for record in results:
+            expanded.append({
+                "content": record["content"],
+                "relation": record["relation"]
+            })
+
+    return expanded
