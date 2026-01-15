@@ -1,44 +1,69 @@
-function Timeline() {
-  const mockTimeline = [
-    {
-      time: "Today • 10:30 AM",
-      text: "Started building Memora OS frontend.",
-    },
-    {
-      time: "Yesterday • 9:00 PM",
-      text: "Finalized backend APIs with FastAPI and Neo4j.",
-    },
-    {
-      time: "2 days ago • 6:15 PM",
-      text: "Designed memory architecture and system flow.",
-    },
-  ];
+import { useEffect, useState } from "react";
+import { fetchTimeline } from "../services/api";
+
+export default function Timeline() {
+  const [timeline, setTimeline] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadTimeline = async () => {
+      try {
+        const data = await fetchTimeline();
+
+        // 🔥 UX decision: show latest memory first
+        const sorted = [...data].reverse();
+
+        setTimeline(sorted);
+      } catch (err) {
+        console.error("Failed to load timeline", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTimeline();
+  }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-full flex flex-col gap-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-semibold">Timeline</h2>
-        <p className="text-slate-400">
-          Chronological view of your memories and events.
+        <h1 className="text-2xl font-semibold">Memory Timeline</h1>
+        <p className="text-slate-400 text-sm">
+          Visual evolution of your memories over time
         </p>
       </div>
 
-      {/* Timeline */}
-      <div className="space-y-4">
-        {mockTimeline.map((item, index) => (
-          <div
-            key={index}
-            className="relative pl-6 border-l border-slate-700"
-          >
-            <div className="absolute left-[-6px] top-2 w-3 h-3 rounded-full bg-blue-500" />
-            <p className="text-sm text-slate-400">{item.time}</p>
-            <p className="text-slate-100 mt-1">{item.text}</p>
+      {/* Content */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        {loading ? (
+          <p className="text-slate-400 text-sm">Loading timeline...</p>
+        ) : timeline.length === 0 ? (
+          <p className="text-slate-400 text-sm">
+            No memories available yet.
+          </p>
+        ) : (
+          <div className="relative border-l border-slate-700 pl-6 space-y-6">
+            {timeline.map((item, index) => (
+              <div key={index} className="relative">
+                {/* Dot */}
+                <div className="absolute -left-[9px] top-1 w-4 h-4 bg-indigo-500 rounded-full" />
+
+                {/* Card */}
+                <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                  <p className="text-slate-200 text-sm">
+                    {item.content}
+                  </p>
+
+                  <p className="text-xs text-slate-500 mt-2">
+                    {new Date(item.created_at).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
 }
-
-export default Timeline;
