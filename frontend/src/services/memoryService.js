@@ -2,7 +2,7 @@ import api from "./api";
 
 // Add memory
 export const addMemory = async (payload) => {
-  const res = await api.post("/api/v1/memory/", payload);
+  const res = await api.post("/memory/", payload);
   return res.data;
 };
 
