@@ -121,3 +121,30 @@ def expand_context_from_memories(memory_ids: list, limit: int = 5):
             })
 
     return expanded
+
+def get_memory_timeline(limit: int = 20):
+    """
+    Fetch memories ordered by time for timeline-aware reasoning.
+    """
+    driver = get_driver()
+
+    query = """
+    MATCH (m:Memory)
+    WHERE m.created_at IS NOT NULL
+    RETURN m.content AS content, m.created_at AS created_at
+    ORDER BY m.created_at ASC
+    LIMIT $limit
+    """
+
+    timeline = []
+
+    with driver.session() as session:
+        results = session.run(query, limit=limit)
+
+        for record in results:
+            timeline.append({
+                "content": record["content"],
+                "created_at": record["created_at"]
+            })
+
+    return timeline

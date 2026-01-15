@@ -1,14 +1,12 @@
-# backend/app/services/brain_service.py
-
 from app.db.chroma import semantic_search
-from app.services.graph import expand_context_from_memories
+from app.services.graph import (
+    expand_context_from_memories,
+    get_memory_timeline
+)
 from app.ai.llm import generate_answer
 
 
 def ask_brain(question: str):
-    """
-    AskBrain with Vector + Neo4j Graph reasoning.
-    """
 
     # Step 1: Vector recall
     memories = semantic_search(
@@ -24,15 +22,20 @@ def ask_brain(question: str):
         limit=5
     )
 
-    # Step 3: Answer generation
+    # Step 3: Timeline reasoning
+    timeline = get_memory_timeline(limit=10)
+
+    # Step 4: Final answer
     answer = generate_answer(
         question=question,
         memories=memories,
-        graph_context=graph_context
+        graph_context=graph_context,
+        timeline=timeline
     )
 
     return {
         "answer": answer,
         "memories_used": memories,
-        "graph_context": graph_context
+        "graph_context": graph_context,
+        "timeline_used": timeline
     }

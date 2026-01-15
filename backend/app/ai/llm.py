@@ -1,35 +1,15 @@
-# backend/app/ai/llm.py
-
 from collections import OrderedDict
 
 
-def _deduplicate_contents(items: list[str]) -> list[str]:
-    """
-    Preserve order while removing duplicates.
-    """
+def _dedupe(items):
     return list(OrderedDict.fromkeys(items))
-
-
-def _summarize_points(points: list[str]) -> str:
-    """
-    Convert bullet-like facts into a natural sentence.
-    """
-    if not points:
-        return ""
-
-    if len(points) == 1:
-        return points[0]
-
-    if len(points) == 2:
-        return f"{points[0]} and {points[1]}"
-
-    return ", ".join(points[:-1]) + f", and {points[-1]}"
 
 
 def generate_answer(
     question: str,
     memories: list,
-    graph_context: list | None = None
+    graph_context: list | None = None,
+    timeline: list | None = None
 ) -> str:
 
     if not memories:
@@ -38,47 +18,58 @@ def generate_answer(
             "Try adding more memories to Memora OS."
         )
 
-    # Extract & clean memory facts
-    memory_points = [
+    # Memory facts
+
+    memory_points = _dedupe(
         m["content"].strip().rstrip(".")
         for m in memories
         if m.get("content")
-    ]
+    )
 
-    memory_points = _deduplicate_contents(memory_points)
-
-    # Extract graph-related facts
+    # Graph facts
     graph_points = []
     if graph_context:
         for g in graph_context:
-            content = g.get("content")
-            relation = g.get("relation")
-            if content and relation:
+            if g.get("content"):
                 graph_points.append(
-                    f"{content.strip()} (linked via {relation.lower()})"
+                    f"{g['content']} (linked via {g['relation'].lower()})"
                 )
+    graph_points = _dedupe(graph_points)
 
-    graph_points = _deduplicate_contents(graph_points)
+    # Timeline analysis
+    timeline_summary = ""
+    if timeline and len(timeline) >= 2:
+        early = timeline[0]["content"].strip()
+        recent = timeline[-1]["content"].strip()
 
-    # Summarize
-    memory_summary = _summarize_points(memory_points)
+        if early != recent:
+            timeline_summary = (
+                f"Initially, {early}. "
+                f"Over time, this progressed, and more recently, {recent}."
+            )
 
+    # Compose answer
     answer_parts = []
 
     answer_parts.append(
-        "Based on your stored memories and their relationships, here is my assessment:"
+        "Based on your memories, their relationships, and how they evolved over time, here is my assessment:"
     )
 
-    if memory_summary:
+    if memory_points:
         answer_parts.append(
-            f"Overall, {memory_summary}."
+            "Overall, " + ", ".join(memory_points[:-1]) +
+            f", and {memory_points[-1]}."
+            if len(memory_points) > 1
+            else f"Overall, {memory_points[0]}."
         )
 
     if graph_points:
-        graph_summary = _summarize_points(graph_points)
         answer_parts.append(
-            f"Related concepts in your knowledge graph further support this, including {graph_summary}."
+            "Related concepts in your knowledge graph further support this, including "
+            + ", ".join(graph_points) + "."
         )
 
-    # Final answer
+    if timeline_summary:
+        answer_parts.append(timeline_summary)
+
     return "\n\n".join(answer_parts)
