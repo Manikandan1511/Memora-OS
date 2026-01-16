@@ -1,16 +1,33 @@
 # backend/app/services/graph.py
 
+from datetime import datetime, timezone
 from app.db.neo4j import get_driver
+from app.services.forgetting import apply_time_decay
 
+
+# WRITE OPERATIONS
 
 def create_memory_node(memory: dict):
+    """
+    Create or update a memory node in Neo4j.
+    Always stores UTC-aware datetime.
+    """
     driver = get_driver()
+
+    created_at = memory.get("created_at")
+
+    #  Normalize created_at to UTC-aware datetime
+    if isinstance(created_at, str):
+        created_at = datetime.fromisoformat(created_at)
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
 
     query = """
     MERGE (m:Memory {id: $id})
     SET m.content = $content,
         m.source = $source,
-        m.created_at = $created_at
+        m.created_at = $created_at,
+        m.strength = $strength
     """
 
     with driver.session() as session:
@@ -19,16 +36,15 @@ def create_memory_node(memory: dict):
             id=memory["id"],
             content=memory["content"],
             source=memory["source"],
-            created_at=memory["created_at"]
+            created_at=created_at,
+            strength=memory.get("strength", 0.8)
         )
 
 
 def link_related_memories(memory: dict):
     """
-    Simple demo logic:
-    Link new memory to all existing memories from same source
+    Link new memory to existing memories from the same source.
     """
-
     driver = get_driver()
 
     query = """
@@ -46,7 +62,13 @@ def link_related_memories(memory: dict):
         )
 
 
+# READ OPERATIONS
+
 def get_graph():
+    """
+    Return full knowledge graph (nodes + edges).
+    Used by Brain Graph frontend.
+    """
     driver = get_driver()
 
     query = """
@@ -88,6 +110,7 @@ def get_graph():
         "edges": edges
     }
 
+
 def expand_context_from_memories(memory_ids: list, limit: int = 5):
     """
     Expand reasoning context using Neo4j relationships.
@@ -122,16 +145,20 @@ def expand_context_from_memories(memory_ids: list, limit: int = 5):
 
     return expanded
 
-def get_memory_timeline(limit: int = 20):
+
+def get_memory_timeline(limit: int = 50):
     """
-    Fetch memories ordered by time for timeline-aware reasoning.
+    Timeline with time-decay aware strength.
+    Handles Neo4j DateTime, ISO strings, and UTC safely.
     """
     driver = get_driver()
 
     query = """
     MATCH (m:Memory)
     WHERE m.created_at IS NOT NULL
-    RETURN m.content AS content, m.created_at AS created_at
+    RETURN m.content AS content,
+           m.created_at AS created_at,
+           coalesce(m.strength, 0.8) AS strength
     ORDER BY m.created_at ASC
     LIMIT $limit
     """
@@ -142,9 +169,34 @@ def get_memory_timeline(limit: int = 20):
         results = session.run(query, limit=limit)
 
         for record in results:
+            created_at = record["created_at"]
+            base_strength = record["strength"]
+
+            #  Convert Neo4j / string → Python datetime
+            if isinstance(created_at, str):
+                created_at_dt = datetime.fromisoformat(created_at)
+            else:
+                created_at_dt = created_at.to_native()
+
+            #  FORCE UTC AWARENESS
+            if created_at_dt.tzinfo is None:
+                created_at_dt = created_at_dt.replace(tzinfo=timezone.utc)
+
+            #  Apply forgetting safely
+            decayed_strength = apply_time_decay(
+                created_at_dt,
+                base_strength
+            )
+
             timeline.append({
                 "content": record["content"],
-                "created_at": record["created_at"]
+                "created_at": created_at_dt.isoformat(),
+                "strength": round(decayed_strength, 2),
+                "state": (
+                    "strong" if decayed_strength > 0.7 else
+                    "weak" if decayed_strength > 0.3 else
+                    "fading"
+                )
             })
 
     return timeline
