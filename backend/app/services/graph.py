@@ -1,6 +1,8 @@
 # backend/app/services/graph.py
 
 from datetime import datetime, timezone
+from typing import List
+
 from app.db.neo4j import get_driver
 from app.services.forgetting import apply_time_decay
 
@@ -9,18 +11,22 @@ from app.services.forgetting import apply_time_decay
 
 def create_memory_node(memory: dict):
     """
-    Create or update a memory node in Neo4j.
+    Create or update a Memory node in Neo4j.
     Always stores UTC-aware datetime.
     """
     driver = get_driver()
 
     created_at = memory.get("created_at")
 
-    #  Normalize created_at to UTC-aware datetime
+    # Normalize created_at → UTC-aware datetime
     if isinstance(created_at, str):
         created_at = datetime.fromisoformat(created_at)
-    if created_at.tzinfo is None:
+
+    if isinstance(created_at, datetime) and created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
+
+    if created_at is None:
+        created_at = datetime.now(timezone.utc)
 
     query = """
     MERGE (m:Memory {id: $id})
@@ -37,7 +43,7 @@ def create_memory_node(memory: dict):
             content=memory["content"],
             source=memory["source"],
             created_at=created_at,
-            strength=memory.get("strength", 0.8)
+            strength=memory.get("strength", 0.8),
         )
 
 
@@ -58,7 +64,7 @@ def link_related_memories(memory: dict):
         session.run(
             query,
             id=memory["id"],
-            source=memory["source"]
+            source=memory["source"],
         )
 
 
@@ -90,31 +96,31 @@ def get_graph():
             nodes[a["id"]] = {
                 "id": a["id"],
                 "content": a.get("content"),
-                "source": a.get("source")
+                "source": a.get("source"),
             }
 
             nodes[b["id"]] = {
                 "id": b["id"],
                 "content": b.get("content"),
-                "source": b.get("source")
+                "source": b.get("source"),
             }
 
             edges.append({
                 "from": a["id"],
                 "to": b["id"],
-                "type": r.type
+                "type": r.type,
             })
 
     return {
         "nodes": list(nodes.values()),
-        "edges": edges
+        "edges": edges,
     }
 
 
-def expand_context_from_memories(memory_ids: list, limit: int = 5):
+def expand_context_from_memories(memory_ids: List[str], limit: int = 5):
     """
     Expand reasoning context using Neo4j relationships.
-    Used by AskBrain.
+    Archived memories are excluded.
     """
     if not memory_ids:
         return []
@@ -124,6 +130,7 @@ def expand_context_from_memories(memory_ids: list, limit: int = 5):
     query = """
     MATCH (m:Memory)-[r]->(related:Memory)
     WHERE m.id IN $memory_ids
+      AND coalesce(related.archived, false) = false
     RETURN DISTINCT related.content AS content, type(r) AS relation
     LIMIT $limit
     """
@@ -134,13 +141,13 @@ def expand_context_from_memories(memory_ids: list, limit: int = 5):
         results = session.run(
             query,
             memory_ids=memory_ids,
-            limit=limit
+            limit=limit,
         )
 
         for record in results:
             expanded.append({
                 "content": record["content"],
-                "relation": record["relation"]
+                "relation": record["relation"],
             })
 
     return expanded
@@ -148,14 +155,15 @@ def expand_context_from_memories(memory_ids: list, limit: int = 5):
 
 def get_memory_timeline(limit: int = 50):
     """
-    Timeline with time-decay aware strength.
-    Handles Neo4j DateTime, ISO strings, and UTC safely.
+    Timeline with decay-aware strength.
+    Fully safe for Neo4j DateTime, ISO strings, and UTC.
     """
     driver = get_driver()
 
     query = """
     MATCH (m:Memory)
     WHERE m.created_at IS NOT NULL
+      AND coalesce(m.archived, false) = false
     RETURN m.content AS content,
            m.created_at AS created_at,
            coalesce(m.strength, 0.8) AS strength
@@ -172,20 +180,19 @@ def get_memory_timeline(limit: int = 50):
             created_at = record["created_at"]
             base_strength = record["strength"]
 
-            #  Convert Neo4j / string → Python datetime
+            # Neo4j DateTime → Python datetime
             if isinstance(created_at, str):
                 created_at_dt = datetime.fromisoformat(created_at)
             else:
                 created_at_dt = created_at.to_native()
 
-            #  FORCE UTC AWARENESS
+            # Enforce UTC awareness
             if created_at_dt.tzinfo is None:
                 created_at_dt = created_at_dt.replace(tzinfo=timezone.utc)
 
-            #  Apply forgetting safely
             decayed_strength = apply_time_decay(
                 created_at_dt,
-                base_strength
+                base_strength,
             )
 
             timeline.append({
@@ -193,10 +200,61 @@ def get_memory_timeline(limit: int = 50):
                 "created_at": created_at_dt.isoformat(),
                 "strength": round(decayed_strength, 2),
                 "state": (
-                    "strong" if decayed_strength > 0.7 else
-                    "weak" if decayed_strength > 0.3 else
-                    "fading"
-                )
+                    "strong" if decayed_strength > 0.7
+                    else "weak" if decayed_strength > 0.3
+                    else "fading"
+                ),
             })
 
     return timeline
+
+
+# MEMORY DYNAMICS (REINFORCE & ARCHIVE)
+
+def reinforce_memories(memory_ids: List[str], boost: float = 0.05):
+    """
+    Increase strength of recalled memories.
+    SAFE: only updates strength.
+    """
+    if not memory_ids:
+        return
+
+    driver = get_driver()
+
+    query = """
+    MATCH (m:Memory)
+    WHERE m.id IN $memory_ids
+    SET m.strength =
+        CASE
+            WHEN m.strength IS NULL THEN $boost
+            WHEN m.strength + $boost > 1.0 THEN 1.0
+            ELSE m.strength + $boost
+        END
+    """
+
+    with driver.session() as session:
+        session.run(
+            query,
+            memory_ids=memory_ids,
+            boost=boost,
+        )
+
+
+def archive_faded_memories(threshold: float = 0.3):
+    """
+    Mark memories as archived when strength is too low.
+    SAFE: no deletion, no date mutation.
+    """
+    driver = get_driver()
+
+    query = """
+    MATCH (m:Memory)
+    WHERE coalesce(m.strength, 0.8) <= $threshold
+    SET m.archived = true
+    """
+
+    with driver.session() as session:
+        session.run(
+            query,
+            threshold=threshold,
+        )

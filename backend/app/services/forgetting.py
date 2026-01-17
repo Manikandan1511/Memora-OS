@@ -32,3 +32,11 @@ def reinforce_memory(current_strength: float, boost: float = 0.1) -> float:
     Reinforce memory when recalled.
     """
     return min(current_strength + boost, 1.0)
+
+def reinforce_strength(current_strength: float, boost: float = 0.1) -> float:
+    """
+    Increase memory strength when recalled.
+    """
+    return min(current_strength + boost, 1.0)
+
+ARCHIVE_THRESHOLD = 0.3

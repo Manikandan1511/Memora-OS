@@ -1,7 +1,9 @@
 from app.db.chroma import semantic_search
 from app.services.graph import (
     expand_context_from_memories,
-    get_memory_timeline
+    get_memory_timeline,
+    reinforce_memories,
+    archive_faded_memories
 )
 from app.ai.llm import generate_answer
 
@@ -15,6 +17,10 @@ def ask_brain(question: str):
     )
 
     memory_ids = [m["id"] for m in memories]
+    
+    # 🔥 Step 1.5: Reinforce recalled memories
+    reinforce_memories(memory_ids)
+    archive_faded_memories()
 
     # Step 2: Graph reasoning
     graph_context = expand_context_from_memories(
