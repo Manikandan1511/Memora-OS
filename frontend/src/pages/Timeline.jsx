@@ -9,11 +9,7 @@ export default function Timeline() {
     const loadTimeline = async () => {
       try {
         const data = await fetchTimeline();
-
-        // 🔥 UX decision: show latest memory first
-        const sorted = [...data].reverse();
-
-        setTimeline(sorted);
+        setTimeline(data); // backend already sorted DESC
       } catch (err) {
         console.error("Failed to load timeline", err);
       } finally {
@@ -24,9 +20,40 @@ export default function Timeline() {
     loadTimeline();
   }, []);
 
+  const getStyles = (item) => {
+    if (item.archived) {
+      return {
+        dot: "bg-gray-500",
+        card: "bg-slate-800 border border-slate-700 opacity-40",
+        badge: true
+      };
+    }
+
+    if (item.state === "strong") {
+      return {
+        dot: "bg-indigo-500",
+        card: "bg-slate-800 border border-indigo-500",
+        badge: false
+      };
+    }
+
+    if (item.state === "weak") {
+      return {
+        dot: "bg-indigo-400",
+        card: "bg-slate-800 border border-slate-600 opacity-80",
+        badge: false
+      };
+    }
+
+    return {
+      dot: "bg-slate-600",
+      card: "bg-slate-800 border border-slate-700 opacity-60",
+      badge: false
+    };
+  };
+
   return (
     <div className="min-h-full flex flex-col gap-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold">Memory Timeline</h1>
         <p className="text-slate-400 text-sm">
@@ -34,7 +61,6 @@ export default function Timeline() {
         </p>
       </div>
 
-      {/* Content */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
         {loading ? (
           <p className="text-slate-400 text-sm">Loading timeline...</p>
@@ -44,23 +70,41 @@ export default function Timeline() {
           </p>
         ) : (
           <div className="relative border-l border-slate-700 pl-6 space-y-6">
-            {timeline.map((item, index) => (
-              <div key={index} className="relative">
-                {/* Dot */}
-                <div className="absolute -left-[9px] top-1 w-4 h-4 bg-indigo-500 rounded-full" />
+            {timeline.map((item, index) => {
+              const styles = getStyles(item);
 
-                {/* Card */}
-                <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-                  <p className="text-slate-200 text-sm">
-                    {item.content}
-                  </p>
+              return (
+                <div key={index} className="relative">
+                  {/* Dot */}
+                  <div
+                    className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full ${styles.dot}`}
+                  />
 
-                  <p className="text-xs text-slate-500 mt-2">
-                    {new Date(item.created_at).toLocaleString()}
-                  </p>
+                  {/* Card */}
+                  <div className={`rounded-lg p-4 ${styles.card}`}>
+                    <div className="flex justify-between items-start">
+                      <p className="text-slate-200 text-sm">
+                        {item.content}
+                      </p>
+
+                      {styles.badge && (
+                        <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">
+                          Archived
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-500 mt-2">
+                      {new Date(item.created_at).toLocaleString()}
+                    </p>
+
+                    <p className="text-xs text-slate-500 mt-1">
+                      Strength: {item.strength}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
