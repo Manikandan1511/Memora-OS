@@ -3,40 +3,62 @@
 from datetime import datetime, timezone
 from math import exp
 
-DECAY_RATE = 0.00002
-MIN_STRENGTH = 0.1
+from app.config.memory_config import (
+    DECAY_CONSTANT,
+    REINFORCEMENT_BOOST,
+    ARCHIVE_THRESHOLD
+)
 
+# TIME DECAY
 
 def apply_time_decay(created_at: datetime, current_strength: float) -> float:
     """
-    Exponential decay based on time.
-    Fully UTC-safe (no naive/aware crashes).
+    Apply exponential time decay to memory strength.
+
+    - Fully UTC-safe
+    - No naive/aware datetime crashes
+    - Never returns negative values
     """
 
-    #  FORCE created_at to UTC-aware
+    if not created_at:
+        return current_strength
+
+    # Ensure created_at is UTC-aware
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
 
-    #  USE UTC-AWARE now
     now = datetime.now(timezone.utc)
 
     age_seconds = (now - created_at).total_seconds()
 
-    decayed = current_strength * exp(-DECAY_RATE * age_seconds)
+    # Exponential decay
+    decayed = current_strength * exp(-DECAY_CONSTANT * age_seconds)
 
-    return max(decayed, MIN_STRENGTH)
+    # Strength should never go below 0
+    return max(decayed, 0.0)
 
 
-def reinforce_memory(current_strength: float, boost: float = 0.1) -> float:
+# REINFORCEMENT
+
+def reinforce_memory(current_strength: float) -> float:
     """
     Reinforce memory when recalled.
-    """
-    return min(current_strength + boost, 1.0)
 
-def reinforce_strength(current_strength: float, boost: float = 0.1) -> float:
+    Uses configured boost.
+    Capped at 1.0
     """
-    Increase memory strength when recalled.
-    """
-    return min(current_strength + boost, 1.0)
 
-ARCHIVE_THRESHOLD = 0.3
+    boosted = current_strength + REINFORCEMENT_BOOST
+
+    return min(boosted, 1.0)
+
+
+# ARCHIVE CHECK
+
+def should_archive(strength: float) -> bool:
+    """
+    Check whether a memory should be archived
+    based on configured threshold.
+    """
+
+    return strength <= ARCHIVE_THRESHOLD
