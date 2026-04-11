@@ -24,7 +24,22 @@ export const askBrain = async (question) => {
 
 export const fetchTimeline = async () => {
   const response = await api.get("/graph/timeline");
+  console.log("TIMELINE API RESPONSE:", response.data);
   return response.data.timeline;
 };
 
 export default api;
+
+
+// GRAPH API
+
+export const fetchGraph = async () => {
+  const response = await api.get("/graph/");
+  return response.data;
+};
+
+// INSIGHTS API
+export const fetchDashboard = async () => {
+  const response = await api.get("/insights/dashboard");
+  return response.data;
+};
