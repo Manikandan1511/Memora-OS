@@ -6,17 +6,13 @@ from app.db.neo4j import get_driver
 from app.services.forgetting import apply_time_decay
 
 
-def create_memory_node(memory: dict):
-    """
-    Create or update a memory node in Neo4j.
-    Always stores UTC-aware datetime.
-    """
+# CREATE MEMORY NODE
 
+def create_memory_node(memory: dict):
     driver = get_driver()
 
     created_at = memory.get("created_at")
 
-    # Normalize created_at safely
     if isinstance(created_at, str):
         created_at = datetime.fromisoformat(created_at)
 
@@ -42,11 +38,9 @@ def create_memory_node(memory: dict):
             strength=memory.get("strength", 0.8)
         )
 
+# LINK MEMORIES
 
 def link_related_memories(memory: dict):
-    """
-    Link new memory to existing memories from same source.
-    """
     driver = get_driver()
 
     query = """
@@ -66,13 +60,6 @@ def link_related_memories(memory: dict):
 # DECAY ENGINE 
 
 def run_decay_cycle(threshold: float = 0.3):
-    """
-    Applies real decay to all non-archived memories.
-    Updates stored strength.
-    Archives memories below threshold.
-    SAFE: does NOT delete anything.
-    """
-
     driver = get_driver()
 
     query = """
@@ -81,6 +68,7 @@ def run_decay_cycle(threshold: float = 0.3):
       AND m.created_at IS NOT NULL
     RETURN m.id AS id,
            m.created_at AS created_at,
+           m.last_accessed AS last_accessed,
            coalesce(m.strength, 0.8) AS strength
     """
 
@@ -89,21 +77,28 @@ def run_decay_cycle(threshold: float = 0.3):
 
         for record in results:
             memory_id = record["id"]
-            created_at = record["created_at"]
             base_strength = record["strength"]
 
-            # Convert Neo4j datetime or ISO string
-            if isinstance(created_at, str):
-                created_at_dt = datetime.fromisoformat(created_at)
-            else:
-                created_at_dt = created_at.to_native()
+            # 🔥 USE last_accessed IF EXISTS
+            last_accessed = record.get("last_accessed")
 
-            # Force UTC awareness
-            if created_at_dt.tzinfo is None:
-                created_at_dt = created_at_dt.replace(tzinfo=timezone.utc)
+            if last_accessed:
+                if isinstance(last_accessed, str):
+                    base_time = datetime.fromisoformat(last_accessed)
+                else:
+                    base_time = last_accessed.to_native()
+            else:
+                created_at = record["created_at"]
+                if isinstance(created_at, str):
+                    base_time = datetime.fromisoformat(created_at)
+                else:
+                    base_time = created_at.to_native()
+
+            if base_time.tzinfo is None:
+                base_time = base_time.replace(tzinfo=timezone.utc)
 
             decayed_strength = apply_time_decay(
-                created_at_dt,
+                base_time,
                 base_strength
             )
 
@@ -121,11 +116,11 @@ def run_decay_cycle(threshold: float = 0.3):
                 threshold=threshold
             )
 
-
+# GRAPH FETCH
 
 def get_graph():
     """
-    Return full knowledge graph (nodes + edges).
+    Returns full graph with cognitive state (strength + archived + state)
     """
 
     driver = get_driver()
@@ -146,18 +141,55 @@ def get_graph():
             b = record["b"]
             r = record["r"]
 
-            nodes[a["id"]] = {
-                "id": a["id"],
-                "content": a.get("content"),
-                "source": a.get("source")
-            }
+            # NODE A
+            if a["id"] not in nodes:
+                strength = a.get("strength", 0.8)
+                archived = a.get("archived", False)
 
-            nodes[b["id"]] = {
-                "id": b["id"],
-                "content": b.get("content"),
-                "source": b.get("source")
-            }
+                # 🧠 Determine state
+                if archived:
+                    state = "archived"
+                elif strength >= 0.7:
+                    state = "strong"
+                elif strength >= 0.4:
+                    state = "weak"
+                else:
+                    state = "fading"
 
+                nodes[a["id"]] = {
+                    "id": a["id"],
+                    "content": a.get("content"),
+                    "source": a.get("source"),
+                    "strength": strength,
+                    "archived": archived,
+                    "state": state
+                }
+
+            # NODE B
+            if b["id"] not in nodes:
+                strength = b.get("strength", 0.8)
+                archived = b.get("archived", False)
+
+                # 🧠 Determine state
+                if archived:
+                    state = "archived"
+                elif strength >= 0.7:
+                    state = "strong"
+                elif strength >= 0.4:
+                    state = "weak"
+                else:
+                    state = "fading"
+
+                nodes[b["id"]] = {
+                    "id": b["id"],
+                    "content": b.get("content"),
+                    "source": b.get("source"),
+                    "strength": strength,
+                    "archived": archived,
+                    "state": state
+                }
+
+            # EDGE 
             edges.append({
                 "from": a["id"],
                 "to": b["id"],
@@ -169,13 +201,9 @@ def get_graph():
         "edges": edges
     }
 
+# GRAPH CONTEXT
 
 def expand_context_from_memories(memory_ids: List[str], limit: int = 5):
-    """
-    Expand reasoning context using Neo4j relationships.
-    Ignores archived memories.
-    """
-
     if not memory_ids:
         return []
 
@@ -207,13 +235,10 @@ def expand_context_from_memories(memory_ids: List[str], limit: int = 5):
 
     return expanded
 
-def get_memory_timeline(limit: int = 100):
-    """
-    Timeline with full cognitive state.
-    Returns ALL memories including archived ones.
-    Sorted newest first.
-    """
 
+# TIMELINE
+
+def get_memory_timeline(limit: int = 100):
     driver = get_driver()
 
     query = """
@@ -221,6 +246,7 @@ def get_memory_timeline(limit: int = 100):
     WHERE m.created_at IS NOT NULL
     RETURN m.content AS content,
            m.created_at AS created_at,
+           m.last_accessed AS last_accessed,
            coalesce(m.strength, 0.8) AS strength,
            coalesce(m.archived, false) AS archived
     ORDER BY m.created_at DESC
@@ -236,8 +262,9 @@ def get_memory_timeline(limit: int = 100):
             created_at = record["created_at"]
             base_strength = record["strength"]
             archived = record["archived"]
+            last_accessed = record.get("last_accessed")
 
-            # Convert to Python datetime safely
+            # Convert created_at
             if isinstance(created_at, str):
                 created_at_dt = datetime.fromisoformat(created_at)
             else:
@@ -246,13 +273,24 @@ def get_memory_timeline(limit: int = 100):
             if created_at_dt.tzinfo is None:
                 created_at_dt = created_at_dt.replace(tzinfo=timezone.utc)
 
-            # Apply decay
+            # 🔥 USE last_accessed FOR DECAY
+            if last_accessed:
+                if isinstance(last_accessed, str):
+                    base_time = datetime.fromisoformat(last_accessed)
+                else:
+                    base_time = last_accessed.to_native()
+            else:
+                base_time = created_at_dt
+
+            if base_time.tzinfo is None:
+                base_time = base_time.replace(tzinfo=timezone.utc)
+
             decayed_strength = apply_time_decay(
-                created_at_dt,
+                base_time,
                 base_strength
             )
 
-            # Determine cognitive state
+            # Cognitive state
             if archived:
                 state = "archived"
             elif decayed_strength >= 0.7:
@@ -272,18 +310,13 @@ def get_memory_timeline(limit: int = 100):
 
     return timeline
 
-
 # REINFORCEMENT
 
 def reinforce_memories(memory_ids: List[str], boost: float = 0.05):
-    """
-    Increase strength of recalled memories.
-    Safe: only updates strength.
-    """
-
     if not memory_ids:
         return
 
+    now = datetime.now(timezone.utc)
     driver = get_driver()
 
     query = """
@@ -291,26 +324,27 @@ def reinforce_memories(memory_ids: List[str], boost: float = 0.05):
     WHERE m.id IN $memory_ids
     SET m.strength =
         CASE
+            WHEN m.archived = true THEN 0.6
             WHEN m.strength IS NULL THEN $boost
             WHEN m.strength + $boost > 1.0 THEN 1.0
             ELSE m.strength + $boost
-        END
+        END,
+        m.archived = false,
+        m.last_accessed = $now
     """
 
     with driver.session() as session:
         session.run(
             query,
             memory_ids=memory_ids,
-            boost=boost
+            boost=boost,
+            now=now
         )
 
 
-def archive_faded_memories(threshold: float = 0.3):
-    """
-    Manually archive memories below threshold.
-    Safe: does NOT delete anything.
-    """
+# ARCHIVE
 
+def archive_faded_memories(threshold: float = 0.3):
     driver = get_driver()
 
     query = """

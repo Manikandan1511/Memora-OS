@@ -8,6 +8,9 @@ from app.api import memory
 from app.api import evolution
 from app.api import graph
 from app.api import brain   
+from app.services.scheduler import start_decay_scheduler
+from app.api import insights
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME
@@ -30,8 +33,13 @@ app.add_middleware(
 def root():
     return {"status": "Memora OS backend running"}
 
+@app.on_event("startup")
+def startup_event():
+    start_decay_scheduler()
+
 # API routers
 app.include_router(memory.router, prefix=settings.API_V1_STR)
 app.include_router(evolution.router, prefix=settings.API_V1_STR)
 app.include_router(graph.router, prefix=settings.API_V1_STR)
 app.include_router(brain.router, prefix=settings.API_V1_STR)  
+app.include_router(insights.router, prefix=settings.API_V1_STR)
