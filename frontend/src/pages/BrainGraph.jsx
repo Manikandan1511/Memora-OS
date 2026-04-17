@@ -24,7 +24,7 @@ export default function BrainGraph() {
         }));
 
         const links = data.edges.map((edge) => ({
-          source: edge.source || edge.from, // supports both
+          source: edge.source || edge.from, 
           target: edge.target || edge.to,
           label: edge.type,
         }));
@@ -63,7 +63,7 @@ export default function BrainGraph() {
             document.body.style.cursor = node ? "pointer" : null;
           }}
 
-          // 🔥 LINK COLOR (highlight connections)
+          // 🔥 LINK COLOR 
           linkColor={(link) => {
             if (!hoverNode) return "#334155";
 
@@ -115,7 +115,7 @@ export default function BrainGraph() {
                 );
 
               if (!isConnected) {
-                ctx.globalAlpha = 0.2; // fade others
+                ctx.globalAlpha = 0.2; 
               }
             }
 

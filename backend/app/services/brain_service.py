@@ -32,7 +32,7 @@ def ask_brain(question: str):
     if memory_ids:
         reinforce_memories(memory_ids)
 
-    # 🚨 DO NOT ARCHIVE HERE (handled by decay engine)
+    
 
     # STEP 3: Graph reasoning
     graph_context = expand_context_from_memories(

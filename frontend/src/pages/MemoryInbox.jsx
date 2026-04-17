@@ -18,7 +18,7 @@ export default function MemoryInbox() {
 
       await addMemory({
         content: content,
-        source: "user", // MUST match backend schema
+        source: "user", 
       });
 
       setStatus("✅ Memory added successfully");

@@ -15,11 +15,11 @@ class MemoryResponse(BaseModel):
     content: str
     source: str
     embedding: List[float]
-    created_at: datetime  # datetime is correct
+    created_at: datetime  
 
     class Config:
         json_encoders = {
-            datetime: lambda v: v.isoformat()  # THIS FIXES IT
+            datetime: lambda v: v.isoformat()  
         }
 
 

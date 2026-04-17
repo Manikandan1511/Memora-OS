@@ -12,14 +12,14 @@ def search_memories(query: str, limit: int = 5):
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=limit,
-        include=["documents", "metadatas"]  # ❗ NO "ids"
+        include=["documents", "metadatas"]  
     )
 
     memories = []
 
     for i in range(len(results["documents"][0])):
         memories.append({
-            "id": results["ids"][0][i],  # ✅ ids still available here
+            "id": results["ids"][0][i],  
             "content": results["documents"][0][i],
             "metadata": results["metadatas"][0][i]
         })

@@ -9,7 +9,7 @@ export default function Timeline() {
     const loadTimeline = async () => {
       try {
         const data = await fetchTimeline();
-        setTimeline(data); // backend already sorted DESC
+        setTimeline(data); 
       } catch (err) {
         console.error("Failed to load timeline", err);
       } finally {
